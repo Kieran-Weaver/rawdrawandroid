@@ -21,7 +21,7 @@ SRC?=test.cpp
 ANDROIDVERSION?=24
 ANDROIDTARGET?=$(ANDROIDVERSION)
 #Default is to be strip down, but your app can override it.
-CFLAGS?=-ffunction-sections -Os -fdata-sections -Wall -fvisibility=hidden
+CFLAGS?=-MT $@ -MMD -MP -ffunction-sections -Os -fdata-sections -Wall -fvisibility=hidden
 LDFLAGS?=-Wl,--gc-sections -s
 ANDROID_FULLSCREEN?=y
 ADB?=adb
@@ -32,14 +32,15 @@ UNAME := $(shell uname)
 
 
 ANDROIDSRCS:= $(SRC) $(RAWDRAWANDROIDSRCS)
-ARM64_OBJPATH := makecapk/lib/arm64-v8a/obj
-ARM32_OBJPATH := makecapk/lib/armeabi-v7a/obj
-X86_OBJPATH := makecapk/lib/x86/obj
-X86_64_OBJPATH := makecapk/lib/x86_64/obj
-ARM64_OBJS := $(patsubst %.cpp, $(ARM64_OBJPATH)/%.o, $(patsubst %.c, $(ARM64_OBJPATH)/%.o, $(ANDROIDSRCS)))
-ARM32_OBJS := $(patsubst %.cpp, $(ARM32_OBJPATH)/%.o, $(patsubst %.c, $(ARM32_OBJPATH)/%.o, $(ANDROIDSRCS)))
-X86_OBJS := $(patsubst %.cpp, $(X86_OBJPATH)/%.o, $(patsubst %.c, $(X86_OBJPATH)/%.o, $(ANDROIDSRCS)))
+ARM64_OBJPATH := build/arm64-v8a
+ARM32_OBJPATH := build/armeabi-v7a
+X86_OBJPATH := build/x86
+X86_64_OBJPATH := build/x86_64
+ARM64_OBJS :=  $(patsubst %.cpp, $(ARM64_OBJPATH)/%.o, $(patsubst %.c, $(ARM64_OBJPATH)/%.o, $(ANDROIDSRCS)))
+ARM32_OBJS :=  $(patsubst %.cpp, $(ARM32_OBJPATH)/%.o, $(patsubst %.c, $(ARM32_OBJPATH)/%.o, $(ANDROIDSRCS)))
+X86_OBJS :=    $(patsubst %.cpp, $(X86_OBJPATH)/%.o, $(patsubst %.c, $(X86_OBJPATH)/%.o, $(ANDROIDSRCS)))
 X86_64_OBJS := $(patsubst %.cpp, $(X86_64_OBJPATH)/%.o, $(patsubst %.c, $(X86_64_OBJPATH)/%.o, $(ANDROIDSRCS)))
+DEPS := $(ARM64_OBJS:.o=.d) $(ARM32_OBJS:.o=.d) $(X86_OBJS:.o=.d) $(X86_64_OBJS:.o=.d)
 
 #if you have a custom Android Home location you can add it to this list.  
 #This makefile will select the first present folder.
@@ -109,10 +110,10 @@ TARGETS += makecapk/lib/armeabi-v7a/lib$(APPNAME).so
 #TARGETS += makecapk/lib/x86/lib$(APPNAME).so
 #TARGETS += makecapk/lib/x86_64/lib$(APPNAME).so
 
-CFLAGS_ARM64:=-m64
-CFLAGS_ARM32:=-mfloat-abi=softfp -m32
-CFLAGS_x86:=-march=i686 -mtune=intel -mssse3 -mfpmath=sse -m32
-CFLAGS_x86_64:=-march=x86-64 -msse4.2 -mpopcnt -m64 -mtune=intel
+CFLAGS_ARM64=-MF $(ARM64_OBJPATH)/$*.d -m64
+CFLAGS_ARM32=-MF $(ARM32_OBJPATH)/$*.d -mfloat-abi=softfp -m32
+CFLAGS_x86=-MF $(X86_OBJPATH)/$*.d -march=i686 -mtune=intel -mssse3 -mfpmath=sse -m32
+CFLAGS_x86_64=-MF $(X86_64_OBJPATH)/$*.d -march=x86-64 -msse4.2 -mpopcnt -m64 -mtune=intel
 STOREPASS?=password
 DNAME:="CN=example.com, OU=ID, O=Example, L=Doe, S=John, C=GB"
 KEYSTOREFILE:=my-release-key.keystore
@@ -131,7 +132,7 @@ folders:
 
 $(ARM64_OBJPATH)/%.o : %.c
 	mkdir -p $(dir $@)
-	$(CC_ARM64) $(CFLAGS) $(CFLAGS_ARM64) -c -o $@ $^
+	$(CC_ARM64) -MT $@ $(CFLAGS) $(CFLAGS_ARM64) -c -o $@ $^
 
 $(ARM64_OBJPATH)/%.o : %.cpp
 	mkdir -p $(dir $@)
@@ -229,5 +230,6 @@ run : push
 	$(ADB) shell am start -n $(PACKAGENAME)/$(ACTIVITYNAME)
 
 clean :
-	rm -rf temp.apk makecapk.apk makecapk $(APKFILE)
+	rm -rf temp.apk makecapk.apk makecapk build $(APKFILE)
 
+-include $(DEPS)
