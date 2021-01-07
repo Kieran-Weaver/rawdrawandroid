@@ -13,12 +13,12 @@ APKFILE ?= $(APPNAME).apk
 PACKAGENAME?=org.yourorg.$(APPNAME)
 RAWDRAWANDROID?=.
 RAWDRAWANDROIDSRCS=$(RAWDRAWANDROID)/android_native_app_glue.c
-SRC?=test.c
+SRC?=test.cpp
 
 #We've tested it with android version 22, 24, 28, 29 and 30.
 #You can target something like Android 28, but if you set ANDROIDVERSION to say 22, then
 #Your app should (though not necessarily) support all the way back to Android 22. 
-ANDROIDVERSION?=30
+ANDROIDVERSION?=24
 ANDROIDTARGET?=$(ANDROIDVERSION)
 #Default is to be strip down, but your app can override it.
 CFLAGS?=-ffunction-sections -Os -fdata-sections -Wall -fvisibility=hidden
@@ -32,6 +32,14 @@ UNAME := $(shell uname)
 
 
 ANDROIDSRCS:= $(SRC) $(RAWDRAWANDROIDSRCS)
+ARM64_OBJPATH := makecapk/lib/arm64-v8a/obj
+ARM32_OBJPATH := makecapk/lib/armeabi-v7a/obj
+X86_OBJPATH := makecapk/lib/x86/obj
+X86_64_OBJPATH := makecapk/lib/x86_64/obj
+ARM64_OBJS := $(patsubst %.cpp, $(ARM64_OBJPATH)/%.o, $(patsubst %.c, $(ARM64_OBJPATH)/%.o, $(ANDROIDSRCS)))
+ARM32_OBJS := $(patsubst %.cpp, $(ARM32_OBJPATH)/%.o, $(patsubst %.c, $(ARM32_OBJPATH)/%.o, $(ANDROIDSRCS)))
+X86_OBJS := $(patsubst %.cpp, $(X86_OBJPATH)/%.o, $(patsubst %.c, $(X86_OBJPATH)/%.o, $(ANDROIDSRCS)))
+X86_64_OBJS := $(patsubst %.cpp, $(X86_64_OBJPATH)/%.o, $(patsubst %.c, $(X86_64_OBJPATH)/%.o, $(ANDROIDSRCS)))
 
 #if you have a custom Android Home location you can add it to this list.  
 #This makefile will select the first present folder.
@@ -81,18 +89,22 @@ CFLAGS+=-Os -DANDROID -DAPPNAME=\"$(APPNAME)\"
 ifeq (ANDROID_FULLSCREEN,y)
 CFLAGS +=-DANDROID_FULLSCREEN
 endif
-CFLAGS+= -I$(RAWDRAWANDROID)/rawdraw -I$(NDK)/sysroot/usr/include -I$(NDK)/sysroot/usr/include/android -fPIC -I$(RAWDRAWANDROID) -DANDROIDVERSION=$(ANDROIDVERSION)
+CFLAGS+= -I$(RAWDRAWANDROID)/rawdraw -I$(NDK)/sysroot/usr/include -I$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/sysroot/usr/include/android -fPIC -I$(RAWDRAWANDROID) -DANDROIDVERSION=$(ANDROIDVERSION)
 LDFLAGS += -lm -lGLESv3 -lEGL -landroid -llog
 LDFLAGS += -shared -uANativeActivity_onCreate
 
 CC_ARM64:=$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/bin/aarch64-linux-android$(ANDROIDVERSION)-clang
+CXX_ARM64:=$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/bin/aarch64-linux-android$(ANDROIDVERSION)-clang++
 CC_ARM32:=$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/bin/armv7a-linux-androideabi$(ANDROIDVERSION)-clang
+CXX_ARM32:=$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/bin/armv7a-linux-androideabi$(ANDROIDVERSION)-clang++
 CC_x86:=$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/bin/i686-linux-android$(ANDROIDVERSION)-clang
-CC_x86_64=$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/bin/x86_64-linux-android$(ANDROIDVERSION)-clang
+CXX_x86:=$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/bin/i686-linux-android$(ANDROIDVERSION)-clang++
+CC_x86_64:=$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/bin/x86_64-linux-android$(ANDROIDVERSION)-clang
+CXX_x86_64:=$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/bin/x86_64-linux-android$(ANDROIDVERSION)-clang++
 AAPT:=$(BUILD_TOOLS)/aapt
 
 # Which binaries to build? Just comment/uncomment these lines:
-TARGETS += makecapk/lib/arm64-v8a/lib$(APPNAME).so
+#TARGETS += makecapk/lib/arm64-v8a/lib$(APPNAME).so
 TARGETS += makecapk/lib/armeabi-v7a/lib$(APPNAME).so
 #TARGETS += makecapk/lib/x86/lib$(APPNAME).so
 #TARGETS += makecapk/lib/x86_64/lib$(APPNAME).so
@@ -117,19 +129,51 @@ folders:
 	mkdir -p makecapk/lib/x86
 	mkdir -p makecapk/lib/x86_64
 
-makecapk/lib/arm64-v8a/lib$(APPNAME).so : $(ANDROIDSRCS)
+$(ARM64_OBJPATH)/%.o : %.c
+	mkdir -p $(dir $@)
+	$(CC_ARM64) $(CFLAGS) $(CFLAGS_ARM64) -c -o $@ $^
+
+$(ARM64_OBJPATH)/%.o : %.cpp
+	mkdir -p $(dir $@)
+	$(CXX_ARM64) $(CFLAGS) $(CFLAGS_ARM64) -c -o $@ $^
+
+$(ARM32_OBJPATH)/%.o : %.c
+	mkdir -p $(dir $@)
+	$(CC_ARM32) $(CFLAGS) $(CFLAGS_ARM32) -c -o $@ $^
+
+$(ARM32_OBJPATH)/%.o : %.cpp
+	mkdir -p $(dir $@)
+	$(CXX_ARM32) $(CFLAGS) $(CFLAGS_ARM32) -c -o $@ $^
+
+$(X86_OBJPATH)/%.o : %.c
+	mkdir -p $(dir $@)
+	$(CC_x86) $(CFLAGS) $(CFLAGS_X86) -c -o $@ $^
+
+$(X86_OBJPATH)/%.o : %.cpp
+	mkdir -p $(dir $@)
+	$(CXX_x86) $(CFLAGS) $(CFLAGS_X86) -c -o $@ $^
+
+$(X86_64_OBJPATH)/%.o : %.c
+	mkdir -p $(dir $@)
+	$(CC_x86) $(CFLAGS) $(CFLAGS_X86_64) -c -o $@ $^
+
+$(X86_64_OBJPATH)/%.o : %.cpp
+	mkdir -p $(dir $@)
+	$(CXX_x86) $(CFLAGS) $(CFLAGS_X86_64) -c -o $@ $^
+
+makecapk/lib/arm64-v8a/lib$(APPNAME).so : $(ARM64_OBJS)
 	mkdir -p makecapk/lib/arm64-v8a
 	$(CC_ARM64) $(CFLAGS) $(CFLAGS_ARM64) -o $@ $^ -L$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/sysroot/usr/lib/aarch64-linux-android/$(ANDROIDVERSION) $(LDFLAGS)
 
-makecapk/lib/armeabi-v7a/lib$(APPNAME).so : $(ANDROIDSRCS)
+makecapk/lib/armeabi-v7a/lib$(APPNAME).so : $(ARM32_OBJS)
 	mkdir -p makecapk/lib/armeabi-v7a
 	$(CC_ARM32) $(CFLAGS) $(CFLAGS_ARM32) -o $@ $^ -L$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/sysroot/usr/lib/arm-linux-androideabi/$(ANDROIDVERSION) $(LDFLAGS)
 
-makecapk/lib/x86/lib$(APPNAME).so : $(ANDROIDSRCS)
+makecapk/lib/x86/lib$(APPNAME).so : $(X86_OBJS)
 	mkdir -p makecapk/lib/x86
 	$(CC_x86) $(CFLAGS) $(CFLAGS_x86) -o $@ $^ -L$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/sysroot/usr/lib/i686-linux-android/$(ANDROIDVERSION) $(LDFLAGS)
 
-makecapk/lib/x86_64/lib$(APPNAME).so : $(ANDROIDSRCS)
+makecapk/lib/x86_64/lib$(APPNAME).so : $(X86_64_OBJS)
 	mkdir -p makecapk/lib/x86_64
 	$(CC_x86) $(CFLAGS) $(CFLAGS_x86_64) -o $@ $^ -L$(NDK)/toolchains/llvm/prebuilt/$(OS_NAME)/sysroot/usr/lib/x86_64-linux-android/$(ANDROIDVERSION) $(LDFLAGS)
 

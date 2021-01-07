@@ -125,7 +125,9 @@ void DrawHeightmap()
 
 	mountainoffsety = mountainoffsety - ((mountainoffsety-100) * .1);
 
-	float eye[3] = { (float)sin(mountainangle*(3.14159/180.0))*30*sin(mountainoffsety/100.), (float)cos(mountainangle*(3.14159/180.0))*30*sin(mountainoffsety/100.), 30*cos(mountainoffsety/100.) };
+	float eye[3] = { (float)(sin(mountainangle*(3.14159/180.0))*30*sin(mountainoffsety/100.)),
+					 (float)(cos(mountainangle*(3.14159/180.0))*30*sin(mountainoffsety/100.)),
+					 (float)(30*cos(mountainoffsety/100.)) };
 	float at[3] = { 0,0, 0 };
 	float up[3] = { 0,0, 1 };
 
@@ -227,7 +229,7 @@ void HandleResume()
 
 uint32_t randomtexturedata[256*256];
 
-int main()
+int main(int argc, char*argv[])
 {
 	int x, y;
 	double ThisTime;
@@ -250,7 +252,7 @@ int main()
 	if( file )
 	{
 		size_t fileLength = AAsset_getLength(file);
-		char * temp = malloc( fileLength + 1);
+		char * temp = (char*)malloc(fileLength + 1);
 		memcpy( temp, AAsset_getBuffer( file ), fileLength );
 		temp[fileLength] = 0;
 		assettext = temp;
